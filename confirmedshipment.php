@@ -17,10 +17,10 @@ $current_url = base64_encode("http://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_U
 
 $debug = true;
 
-$marketoSoapEndPoint     = "https://314-QVX-610.mktoapi.com/soap/mktows/2_7"; 
-$marketoUserId           = "mktodemoaccount2271_953382685460FF2A57DAE8";
-$marketoSecretKey        = "699028073596399455446600FFFF22BC5577EE3BCC64";
-$marketoNameSpace        = "http://www.marketo.com/mktows/";
+$marketoSoapEndPoint     = "*********"; 
+$marketoUserId           = "*********";
+$marketoSecretKey        = "*********";
+$marketoNameSpace        = "*********";
 
 $shipsoap = new soap($marketoSoapEndPoint, $marketoUserId, $marketoSecretKey, $marketoNameSpace, $mysqli);
 $shipsoap->updatechosen($ordervars);
