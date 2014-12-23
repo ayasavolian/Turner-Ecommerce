@@ -1,3 +1,11 @@
+<!--
+Date: 12/22/2014
+User: ayasavolian
+
+- This action page is used to add the lead to the database from a server-side post so we can now associate
+- the anonymous lead with an email address so they're known
+
+-->
 <?php
 session_start();
 require 'servercall.php';
@@ -19,21 +27,20 @@ $clientid = '*****';
 $client_secret = '****';
 $identity = '******';
 $endpoint = '******';
-
-$response = file_get_contents('https://*****.mktorest.com/identity/oauth/token?grant_type=client_credentials&client_id=999fac05-cca8-45d2-862a-60f00c0ca0ff&client_secret=k0M7c8oIRkg5S1V9m2yJvdyFe0lQ8p6w');
+//getting the access token value
+$response = file_get_contents('https://*****.mktorest.com/identity/oauth/token?grant_type=client_credentials&client_id='.$clientid.'&client_secret='.$client_secret.');
 $response = json_decode($response);
-  //grab the access_token value
+  //grab the access_token value from the response
   $at = $response->access_token;
+  //getting the Marketo tracking cookie value 
   $cook =  $_COOKIE['_mkto_trk'];
-  //$cook = substr($cook, strpos($cook, 'token:') + 6, strlen($cook));
 
   $data['Email'] = $email;
   $data['_mkt_trk'] = $cook;
   $data['munchkinId'] = '******';
   $data['formid'] = $fid;
   $url = 'https://app-ab08.marketo.com/index.php/leadCapture/save';
-  //$data = array('FirstName' => 'Steven', 'Company' => 'Naval Reactors', 'LastName' => 'Simoni', 'Email' => 'steven.m.simoni@gmail.com', 'munchkinId' => '226-FBL-320', 'formid' => '1015', '_mkto_trk' => 'id:226-FBL-320&token:_mch-marketosolutionsconsulting.com-1385595977896-52442');
-  // use key 'http' even if you send the request to https://...
+  //pass the updated into marketo 
   $options = array(
    'http' => array(
        'header'  => "Content-type: application/x-www-form-urlencoded\r\n",

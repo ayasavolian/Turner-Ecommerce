@@ -1,7 +1,18 @@
+<!--
+Date: 12/22/2014
+User: ayasavolian
+
+- The index page to log in
+
+-->
 <?php
 	require 'servercall.php';
+    //if they failed to login get the failure
     $login = $_GET['login'];
+    //get the current URL
     $current_url = base64_encode("http://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
+    //if we have already set the PHPSESSID and the sesscookie cookies then they already
+    //have an instance of TE working so we don't need them to log in
     if($_COOKIE['PHPSESSID'] == true && $_COOKIE['sesscookie'] == "true")
     {
         $index = "/te2/home.php";
@@ -32,6 +43,11 @@ document.write(unescape("%3Cscript src='//munchkin.marketo.net/munchkin.js' type
                         <img style = "height: 40px" src = "images/turnerecommerce.png">
                     </div>
                     <div class = "logincreds">
+                        <!--
+                        Login credentials go here...
+                        Once done go to a credentials action page to add the cookies
+                        if accurate credentials
+                        -->
                         <form action = "/logincheck.php" method="post">
                             <?php
                                 if($login == 'false')

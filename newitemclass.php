@@ -1,3 +1,10 @@
+<!--
+Date: 12/22/2014
+User: ayasavolian
+
+- This action page is used to add the product chosen to the cart, and sql database
+
+-->
 <?php
 class newitem
 {
@@ -8,10 +15,11 @@ class newitem
 	public $userid;
 	public $mysqli;
 
-	//getproduct function variables
+	//get product function variables
 
 	function __construct($product_code, $quantityentered, $orderid, $userid, $mysqli)
 	{
+		//initiate all variables passed
 		$this->userid = $userid;
 		$this->quantity = $quantityentered;
 		$this->orderid = $orderid;

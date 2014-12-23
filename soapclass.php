@@ -1,3 +1,10 @@
+<!--
+Date: 12/22/2014
+User: ayasavolian
+
+- This action page is used to add the product chosen to Marketo through the SOAP API
+
+-->
 <?php
 class soap
 {
