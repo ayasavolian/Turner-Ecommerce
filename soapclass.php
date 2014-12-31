@@ -1,5 +1,5 @@
 <!--
-Date: 12/22/2014
+Date: 12/31/2014
 User: ayasavolian
 
 - This action page is used to add the product chosen to Marketo through the SOAP API
@@ -53,6 +53,19 @@ class soap
 		$soapvars = array("options"=>$options, "authHdr"=>$authHdr);
 		return $soapvars;
 	}
+
+
+	function soapclientcall($calltype, $params)
+	{
+		$soapvars = $this->soapconnect($this->endpoint, $this->userid, $this->secretkey, $this->namespace);
+		$options = $soapvars['options'];
+		$authHdr = $soapvars['authHdr'];
+		$endpoint = $this->endpoint;
+		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
+		$result = $soapClient->__soapCall($calltype, $params, $options, $authHdr);
+		return $result;
+	}
+
 	//All vars used in the new item class
 	//These will be referenced into the methods below
 	function pushvars()
@@ -72,11 +85,7 @@ class soap
 	function pushuser($vars)
 	{
 		//use the soap header
-		$soapvars = $this->soapconnect($this->endpoint, $this->userid, $this->secretkey, $this->namespace);
 		$vars = $this->pushvars();
-
-		$options = $soapvars['options'];
-		$authHdr = $soapvars['authHdr'];
 
 		$endpoint = $this->endpoint;
 		$leadKey = new stdClass();
@@ -100,17 +109,15 @@ class soap
 		$leadRecord->returnLead = false;
 		$params = array("paramsSyncLead" => $leadRecord);
 
-		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		$result = $soapClient->__soapCall('syncLead', $params, $options, $authHdr);
+		$result = $this->soapclientcall('syncLead', $params);
 		//call the next method to push the shopping cart items chosen into marketo 
-		$this->pushshoppingcart($vars, $options, $authHdr);
+		$this->pushshoppingcart($vars);
 	}
 
 	//push the shopping cart items into the shopping cart object
 
-	function pushshoppingcart($vars, $options, $authHdr)
+	function pushshoppingcart($vars)
 	{
-		$endpoint = $this->endpoint;
 		$keyAttrib1 = new stdClass();
         $keyAttrib1->attrName = "userid+shoppingcart";
         $keyAttrib1->attrValue = $vars['userid'];
@@ -159,13 +166,8 @@ class soap
         $params->operation = 'UPSERT';
         $params->objTypeName = 'shoppingcart';
         $params->customObjList = $custObjList;
-        $soapClient = new SoapClient($endpoint ."?WSDL", $options);
-        try {
-          $leads = $soapClient->__soapCall('syncCustomObjects', array($params), $options, $authHdr);
-        }
-        catch(Exception $ex) {
-          var_dump($ex);
-        }
+        $params = array($params);
+        $leads = $this->soapclientcall('syncCustomObjects', $params);
 	}
 
 	//update chosen user with their first name and last name in the sql database
@@ -189,10 +191,6 @@ class soap
 
 	function updateuser($ordervars)
 	{
-		$soapvars = $this->soapconnect($this->endpoint, $this->userid, $this->secretkey, $this->namespace);
-		$options = $soapvars['options'];
-		$authHdr = $soapvars['authHdr'];
-		$endpoint = $this->endpoint;
 
 		//REQUEST TO UPDATE USER IN MARKETO
 
@@ -218,14 +216,13 @@ class soap
 		$leadRecord->leadRecord = $leadKey;
 		$leadRecord->returnLead = false;
 		$params = array("paramsSyncLead" => $leadRecord);
-		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		$result = $soapClient->__soapCall('syncLead', $params, $options, $authHdr);
-		$this->updatepurchaseofsc($ordervars, $options, $authHdr, $endpoint);
+		$leads = $this->soapclientcall('syncLead', $params);
+		$this->updatepurchaseofsc($ordervars);
 	}
 
 	//update the shopping cart items purchased to true
 
-	function updatepurchaseofsc($ordervars, $options, $authHdr, $endpoint)
+	function updatepurchaseofsc($ordervars)
 	{
 		$userid = $ordervars['userid'];
 
@@ -263,21 +260,16 @@ class soap
 		        $params->operation = 'UPSERT';
 		        $params->objTypeName = 'shoppingcart';
 		        $params->customObjList = $custObjList;
-		        $soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		        try {
-		          $leads = $soapClient->__soapCall('syncCustomObjects', array($params), $options, $authHdr);
-		        }
-		        catch(Exception $ex) {
-		          var_dump($ex);
-		        }
+		        $params = array($params);
+		        $leads = $this->soapclientcall('syncCustomObjects', $params);
 		    }
 		}
-		$this->insertpurchase($ordervars, $options, $authHdr, $endpoint);
+		$this->insertpurchase($ordervars);
 	}
 
 	//insert the purchase totals into marketo
 
-	function insertpurchase($ordervars, $options, $authHdr, $endpoint)
+	function insertpurchase($ordervars)
 	{
 		//REQUEST TO PUSH PURCHASE
         $keyAttrib1 = new stdClass();
@@ -304,37 +296,21 @@ class soap
         $params->operation = 'UPSERT';
         $params->objTypeName = 'purchases';
         $params->customObjList = $custObjList;
-        $soapClient = new SoapClient($endpoint ."?WSDL", $options);
-        try {
-          $leads = $soapClient->__soapCall('syncCustomObjects', array($params), $options, $authHdr);
-        }
-        catch(Exception $ex) {
-          var_dump($ex);
-        }
-		$this->insertorder($ordervars, $options, $authHdr, $endpoint);
+        $params = array($params);
+      	$leads = $this->soapclientcall('syncCustomObjects', $params);
+		$this->insertorder($ordervars);
 	}
 
-	//inserting the order record related to the lead
-	//there are three main steps to do this... the first is to add the opportunity record and keep the oppty record id
-	//the second is to search for the lead id
-	//the third is to insert the opportunitypersonalrole record which is a junction object record
-	//for the opportunity and the lead records to tie the two together using the oppty record id and lead record id
-
-	function insertorder($ordervars, $options, $authHdr, $endpoint)
+	function insertorder($ordervars)
 	{
-		//first inserting the opportunity record
-		$oppty = $this->insertopportunity($ordervars, $options, $authHdr, $endpoint);
-		//storing the id of the oppty
+		$oppty = $this->insertopportunity($ordervars);
 		$opttyid = $oppty->result->mObjStatusList->mObjStatus->id;
-		//searching for the lead
-		$lead = $this->searchlead($ordervars, $options, $authHdr, $endpoint);
-		//storing the lead id
+		$lead = $this->searchlead($ordervars);
 		$leadid = $lead->result->leadRecordList->leadRecord->Id;
-		//inserting the opportunitypersonrole record to associate the opportunity
-		$this->insertopportunitypersonrole($leadid, $opttyid, $ordervars, $options, $authHdr, $endpoint);
+		$this->insertopportunitypersonrole($leadid, $opttyid, $ordervars);
 	}
 
-	function insertopportunity($ordervars, $options, $authHdr, $endpoint)
+	function insertopportunity($ordervars)
 	{
 		$mObj = new stdClass();
 		$mObj->type = 'Opportunity';
@@ -360,33 +336,21 @@ class soap
 		$params = new stdClass();
 		$params->mObjectList = array($mObj);
 		$params->operation="INSERT";
-			
-		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		try {
-		  $oppty = $soapClient->__soapCall('syncMObjects', array($params), $options, $authHdr);
-		}
-		catch(Exception $ex) {
-		  var_dump($ex);
-		}
+        $params = array($params);
+		$oppty = $this->soapclientcall('syncMObjects', $params);
 		return $oppty;
 	}
 
-	function searchlead($ordervars, $options, $authHdr, $endpoint)
+	function searchlead($ordervars)
 	{
 		$leadKey = array("keyType" => "EMAIL", "keyValue" => $ordervars['email']);
 		$leadKeyParams = array("leadKey" => $leadKey);
 		$params = array("paramsGetLead" => $leadKeyParams);
-		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		try {
-		$lead = $soapClient->__soapCall('getLead', $params, $options, $authHdr);
-		}
-		catch(Exception $ex) {
-		var_dump($ex);
-		}
+		$lead = $this->soapclientcall('getLead', $params);
 		return $lead;
 	}
 
-	function insertopportunitypersonrole($leadid, $opttyid, $ordervars, $options, $authHdr, $endpoint)
+	function insertopportunitypersonrole($leadid, $opttyid, $ordervars)
 	{
 		$params = new stdClass();
 
@@ -414,19 +378,8 @@ class soap
 		$params->mObjectList = array($mObj);
 
 		$params->operation="INSERT";
-			
-		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
-		try {
-		  $leads = $soapClient->__soapCall('syncMObjects', array($params), $options, $authHdr);
-		}
-		catch(Exception $ex) {
-		  var_dump($ex);
-		}
-
-		if ($debug) {
-		  print "RAW request:\n" .$soapClient->__getLastRequest() ."\n";
-		  print "RAW response:\n" .$soapClient->__getLastResponse() ."\n";
-		}
+        $params = array($params);
+		$oppty = $this->soapclientcall('syncMObjects', $params);			
 	}
 }
 ?>
