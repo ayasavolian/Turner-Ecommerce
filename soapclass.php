@@ -19,17 +19,19 @@ class soap
 
 	function __construct($marketoSoapEndPoint, $marketoUserId, $marketoSecretKey, $marketoNameSpace, $mysqli)
 	{
+		//get all of the arguments passed into the soap api for the instance of marketo
 		$this->endpoint = $marketoSoapEndPoint;
 		$this->userid = $marketoUserId;
 		$this->secretkey = $marketoSecretKey;
 		$this->namespace = $marketoNameSpace;
 		$this->mysqli = $mysqli;
-		//call function to gather the product chosen's information
+		//call the soap header
 		$this->soapconnect($this->endpoint, $this->userid, $this->secretkey, $this->namespace);
 	}
 
 
-	//SOAP Header which will be referencecd into all methods
+	//SOAP Header which will be referencecd into all methods through the
+	//soapclientcall function
 
 	function soapconnect($endpoint, $userid, $secretkey, $namespace)
 	{
@@ -54,20 +56,32 @@ class soap
 		return $soapvars;
 	}
 
+	/*
+	EXPLANATION
+	the soapclientcall method will be referenced into all methods that need to use the SOAP API
+	the soapclientcall first uses the soapconnect method in order to call the SOAP Header
+	and then using the arguments passed for the parameters and calltype it will go ahead and
+	do the call that is being passed
+	*/
 
 	function soapclientcall($calltype, $params)
 	{
+		//first calling the soap header
 		$soapvars = $this->soapconnect($this->endpoint, $this->userid, $this->secretkey, $this->namespace);
+		//gathering the variables from the soap header necessary for the call
 		$options = $soapvars['options'];
 		$authHdr = $soapvars['authHdr'];
 		$endpoint = $this->endpoint;
+		//initiating a new soap call
 		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
+		//passing the soap call and gathering the results to be used if needed back in the original method
 		$result = $soapClient->__soapCall($calltype, $params, $options, $authHdr);
 		return $result;
 	}
 
-	//All vars used in the new item class
+	//All vars used in the new item class that we stored as a session variable
 	//These will be referenced into the methods below
+
 	function pushvars()
 	{
 		foreach($_SESSION["completevars"] as $varvalues)
@@ -84,10 +98,19 @@ class soap
 
 	function pushuser($vars)
 	{
-		//use the soap header
-		$vars = $this->pushvars();
 
-		$endpoint = $this->endpoint;
+		//first gather all the variables that are necessary to push the user into Marketo
+		//such as email, and userid
+		$vars = $this->pushvars();
+		/*
+		EXPLANATION
+		we will use this first method as an example for the rest that are following to push info into Marketo
+		the first thing that is necessary is calling a new stdClass for each parameter that you want to pass
+		in this example we'll be passing email as the key to identify the lead and then ecommuserid and userid+shoppingcart as field values
+
+		the purpose for passing the userid+shoppingcart is to make sure we can associate any shopping cart items
+		with the correct lead in the future methods
+		*/
 		$leadKey = new stdClass();
 		$leadKey->Email = $vars['email'];
 
@@ -107,6 +130,10 @@ class soap
 		$leadRecord = new stdClass();
 		$leadRecord->leadRecord = $leadKey;
 		$leadRecord->returnLead = false;
+		/*
+		after gathering all the variables we want to use in stdClasses and getting the field/value pairs, we then store
+		all of these as an array in params, this will be the way we prepare all SOAP API calls.
+		*/
 		$params = array("paramsSyncLead" => $leadRecord);
 
 		$result = $this->soapclientcall('syncLead', $params);
@@ -114,7 +141,12 @@ class soap
 		$this->pushshoppingcart($vars);
 	}
 
-	//push the shopping cart items into the shopping cart object
+	/*
+	push the shopping cart items into the shopping cart object
+	similar to the pushuser method we first gather the keys to identify the lead we want to associate the
+	shopping cart item with and then create the field/value pairs storing them in stdClasses and then eventually
+	passing them into the params variable along with the type of object/call we want to make to the shopping cart object
+	*/
 
 	function pushshoppingcart($vars)
 	{
@@ -184,15 +216,15 @@ class soap
             email='$email' WHERE `chosen`.`userid` = '$userid'";
 
 		$insertresults = mysqli_query($mysqli, $sqluser);
+		//after updating them in the sql database we want to make sure we update them
+		//in Marketo as well so we also call updateuser
 		$this->updateuser($ordervars);
 	}
 
-	//update the user information with the first name and last name
+	//update the user information with the first name and last name in Marketo
 
 	function updateuser($ordervars)
 	{
-
-		//REQUEST TO UPDATE USER IN MARKETO
 
 		$leadKey = new stdClass();
 		$leadKey->Email = $ordervars['email'];
@@ -225,17 +257,18 @@ class soap
 	function updatepurchaseofsc($ordervars)
 	{
 		$userid = $ordervars['userid'];
-
+		//we check to make sure that the products exist for the session
 		if(isset($_SESSION["products"]))
 		{
 		    $total = 0;
+		    //we then loop through the products in the current session to add them
+		    //into Marketo while at the same time updating them in the sql database
 		    foreach ($_SESSION["products"] as $cart_itm)
 		    {
 		        $idofsc = $cart_itm['idofsc'];
 		        $sqlcart = "UPDATE `cartorder` SET purchase ='1' WHERE `id` = '$idofsc'";
 		        $updateresults = mysqli_query($mysqli, $sqlcart);
 
-		        //REQUEST TO PUSH SHOPPING CART INTO MARKETO
 		        $keyAttrib1 = new stdClass();
 		        $keyAttrib1->attrName = "userid+shoppingcart";
 		        $keyAttrib1->attrValue = "$userid";
@@ -267,11 +300,19 @@ class soap
 		$this->insertpurchase($ordervars);
 	}
 
-	//insert the purchase totals into marketo
+	/*
+	EXPLANATION
+	This is the last piece of the purchasing process
+	We want to push the purchase into the "Purchase" object in Marketo as well
+	as the "Orders" object. Specifically we want to push to the Orders object so we can
+	do ROI reporting on all purchases made.  
+
+	We first insert the purchase into Marketo after the user puts in their personal/credit card info
+	and begin processing.
+	*/
 
 	function insertpurchase($ordervars)
 	{
-		//REQUEST TO PUSH PURCHASE
         $keyAttrib1 = new stdClass();
         $keyAttrib1->attrName = "email+purchase";
         $keyAttrib1->attrValue = $ordervars['email'];
@@ -301,12 +342,24 @@ class soap
 		$this->insertorder($ordervars);
 	}
 
+	/*
+	Now that we've inserted the purchase into the Purchase object we want to also insert it into the Orders object.
+	There are three parts to the insertorder method. We must first insert an Opportunity record (Order record) into Marketo
+	then we will search for the lead associated with the opportunity, and then lastly we will create the opportunitypersonrole
+	record that associates the opportunity to a lead. 
+	*/
+
 	function insertorder($ordervars)
 	{
+		//first call the insert opportunity method to create a new opportunity in Marketo
 		$oppty = $this->insertopportunity($ordervars);
+		//gather the id of the opportunity that was created so we can pass it to the opportunitypersonrole junction object
 		$opttyid = $oppty->result->mObjStatusList->mObjStatus->id;
+		//get the lead's id
 		$lead = $this->searchlead($ordervars);
+		//store the lead id so we can pass it to the opportunitypersonrole junction object
 		$leadid = $lead->result->leadRecordList->leadRecord->Id;
+		//create the opportunitypersonrole record and pass both ids collected
 		$this->insertopportunitypersonrole($leadid, $opttyid, $ordervars);
 	}
 
