@@ -311,6 +311,111 @@ class soap
         catch(Exception $ex) {
           var_dump($ex);
         }
+		$this->insertorder($ordervars, $options, $authHdr, $endpoint);
+	}
+
+	function insertorder($ordervars, $options, $authHdr, $endpoint)
+	{
+		$oppty = $this->insertopportunity($ordervars, $options, $authHdr, $endpoint);
+		$opttyid = $oppty->result->mObjStatusList->mObjStatus->id;
+		$lead = $this->searchlead($ordervars, $options, $authHdr, $endpoint);
+		$leadid = $lead->result->leadRecordList->leadRecord->Id;
+		$this->insertopportunitypersonrole($leadid, $opttyid, $ordervars, $options, $authHdr, $endpoint);
+	}
+
+	function insertopportunity($ordervars, $options, $authHdr, $endpoint)
+	{
+		$mObj = new stdClass();
+		$mObj->type = 'Opportunity';
+		$orderid = $ordervars['orderid'];
+		$setorderid = strval($orderid);
+		$attrib1 = new stdClass();
+		$attrib1->name="Name";
+		$attrib1->value= $setorderid;
+		$attrib2 = new stdClass();
+		$attrib2->name="Amount";
+		$attrib2->value= $ordervars['purchtot'];
+
+		$attribs = array($attrib1, $attrib2);
+
+		$attribList = new stdClass();
+		$attribList->attrib = $attribs;
+
+		$mObjAssociationList = new stdClass();
+		$mObjAssociationList->mObjAssociation = $mObjAssociation;
+
+		$mObj->mObjAssociationList = $mObjAssociationList;
+		$mObj->attribList = $attribList;
+		$params = new stdClass();
+		$params->mObjectList = array($mObj);
+		$params->operation="INSERT";
+			
+		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
+		try {
+		  $oppty = $soapClient->__soapCall('syncMObjects', array($params), $options, $authHdr);
+		}
+		catch(Exception $ex) {
+		  var_dump($ex);
+		}
+		return $oppty;
+	}
+
+	function searchlead($ordervars, $options, $authHdr, $endpoint)
+	{
+		$leadKey = array("keyType" => "EMAIL", "keyValue" => $ordervars['email']);
+		$leadKeyParams = array("leadKey" => $leadKey);
+		$params = array("paramsGetLead" => $leadKeyParams);
+		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
+		try {
+		$lead = $soapClient->__soapCall('getLead', $params, $options, $authHdr);
+		}
+		catch(Exception $ex) {
+		var_dump($ex);
+		}
+		return $lead;
+	}
+
+	function insertopportunitypersonrole($leadid, $opttyid, $ordervars, $options, $authHdr, $endpoint)
+	{
+		$params = new stdClass();
+
+		$mObj = new stdClass();
+		$mObj->type = 'OpportunityPersonRole';
+
+		$attrib1 = new stdClass();
+		$attrib1->name="OpportunityId";
+		$attrib1->value= $opttyid;
+			
+		$attrib2 = new stdClass();
+		$attrib2->name="PersonId";
+		$attrib2->value= $leadid;
+			
+		$attrib3 = new stdClass();
+		$attrib3->name="Role";
+		$attrib3->value="Influencer/Champion";
+
+		$attribs = array($attrib1, $attrib2, $attrib3);
+
+		$attribList = new stdClass();
+		$attribList->attrib = $attribs;
+
+		$mObj->attribList = $attribList;
+		$params->mObjectList = array($mObj);
+
+		$params->operation="INSERT";
+			
+		$soapClient = new SoapClient($endpoint ."?WSDL", $options);
+		try {
+		  $leads = $soapClient->__soapCall('syncMObjects', array($params), $options, $authHdr);
+		}
+		catch(Exception $ex) {
+		  var_dump($ex);
+		}
+
+		if ($debug) {
+		  print "RAW request:\n" .$soapClient->__getLastRequest() ."\n";
+		  print "RAW response:\n" .$soapClient->__getLastResponse() ."\n";
+		}
 	}
 }
 ?>
