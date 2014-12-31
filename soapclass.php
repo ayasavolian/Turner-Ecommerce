@@ -314,12 +314,23 @@ class soap
 		$this->insertorder($ordervars, $options, $authHdr, $endpoint);
 	}
 
+	//inserting the order record related to the lead
+	//there are three main steps to do this... the first is to add the opportunity record and keep the oppty record id
+	//the second is to search for the lead id
+	//the third is to insert the opportunitypersonalrole record which is a junction object record
+	//for the opportunity and the lead records to tie the two together using the oppty record id and lead record id
+
 	function insertorder($ordervars, $options, $authHdr, $endpoint)
 	{
+		//first inserting the opportunity record
 		$oppty = $this->insertopportunity($ordervars, $options, $authHdr, $endpoint);
+		//storing the id of the oppty
 		$opttyid = $oppty->result->mObjStatusList->mObjStatus->id;
+		//searching for the lead
 		$lead = $this->searchlead($ordervars, $options, $authHdr, $endpoint);
+		//storing the lead id
 		$leadid = $lead->result->leadRecordList->leadRecord->Id;
+		//inserting the opportunitypersonrole record to associate the opportunity
 		$this->insertopportunitypersonrole($leadid, $opttyid, $ordervars, $options, $authHdr, $endpoint);
 	}
 
